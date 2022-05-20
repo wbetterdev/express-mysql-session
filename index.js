@@ -110,7 +110,7 @@ module.exports = function(session) {
 		debug.log('Creating sessions database table');
 
 		var fs = require('fs');
-		var schemaFilePath = path.join(__dirname, 'schema.sql');
+		var schemaFilePath = this.options.jsonData ? path.join(__dirname, 'schema-json.sql') : path.join(__dirname, 'schema.sql');
 
 		fs.readFile(schemaFilePath, 'utf-8', function(error, sql) {
 
@@ -179,18 +179,15 @@ module.exports = function(session) {
 				return cb(null, null);
 			}
 
-			var data = row.data;
-			if (_.isString(data)) {
-				try {
-					data = JSON.parse(data);
-				} catch (error) {
-					debug.error('Failed to parse data for session (' + session_id + ')');
-					debug.error(error);
-					return cb(error);
-				}
+			try {
+				var session = typeof row.data === "string" ? JSON.parse(row.data) : row.data;
+			} catch (error) {
+				debug.error('Failed to parse data for session (' + session_id + ')');
+				debug.error(error);
+				return cb(error);
 			}
 
-			cb(null, data);
+			cb(null, session);
 		});
 	};
 
@@ -369,18 +366,14 @@ module.exports = function(session) {
 			}
 
 			var sessions = _.chain(rows).map(function(row) {
-				var session_id = row.session_id;
-				var data = row.data;
-				if (_.isString(data)) {
-					try {
-						data = JSON.parse(data);
-					} catch (error) {
-						debug.error('Failed to parse data for session (' + session_id + ')');
-						debug.error(error);
-						return null;
-					}
+				try {
+					var data = JSON.parse(row.data);
+				} catch (error) {
+					debug.error('Failed to parse data for session (' + row.session_id + ')');
+					debug.error(error);
+					return null;
 				}
-				return [session_id, data];
+				return [row.session_id, data];
 			}).compact().object().value();
 
 			cb && cb(null, sessions);
